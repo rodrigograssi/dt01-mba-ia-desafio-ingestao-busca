@@ -1,6 +1,7 @@
 import os
 import hashlib
 import json
+import argparse
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -13,6 +14,32 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
 from langchain_postgres import PGVector
 
+ROOT_DIR = Path(__file__).resolve().parent.parent  # src/ -> raiz do projeto
+MIN_CARACTERES = 100  # abaixo disso o PDF provavelmente e so imagem
+
+
+# --- 0. Argumentos e validacao do arquivo (antes de banco e API) --------------
+parser = argparse.ArgumentParser(description="Ingere um PDF no PGVector.")
+parser.add_argument("pdf", nargs="?", default=str(ROOT_DIR / "arq.pdf"),
+                    help="caminho do PDF (padrão: arq.pdf na raiz do projeto)")
+args = parser.parse_args()  # mais de 1 arquivo -> erro "unrecognized arguments"
+
+pdf_path = Path(args.pdf).resolve()
+
+if not pdf_path.exists():
+    parser.error(f"arquivo nao encontrado: {pdf_path}")
+if not pdf_path.is_file():
+    parser.error(f"o caminho nao e um arquivo: {pdf_path}")
+if pdf_path.suffix.lower() != ".pdf":
+    parser.error(f"o arquivo precisa ter extensao .pdf: {pdf_path.name}")
+if pdf_path.stat().st_size == 0:
+    parser.error(f"o arquivo esta vazio: {pdf_path.name}")
+with open(pdf_path, "rb") as f:
+    if f.read(5) != b"%PDF-":
+        parser.error(f"o arquivo nao e um PDF valido (assinatura %PDF- ausente): {pdf_path.name}")
+
+arquivo = pdf_path.name
+
 load_dotenv()
 
 for key in ["OPENROUTER_API_KEY", "MODEL_EMBEDDING", "PG_URL", "PG_VECTOR_COLLECTION"]:
@@ -23,10 +50,6 @@ CHUNK_SIZE = 500
 CHUNK_OVERLAP = 100
 MODELO_EMBEDDING = os.getenv("MODEL_EMBEDDING")
 COLLECTION = os.getenv("PG_VECTOR_COLLECTION")
-
-ROOT_DIR = Path(__file__).resolve().parent.parent  # src/ -> raiz do projeto
-pdf_path = ROOT_DIR / "arq.pdf"
-arquivo = pdf_path.name
 
 
 def hash_ingestao(pdf_path: Path) -> str:
@@ -64,7 +87,19 @@ if hash_atual == novo_hash:
 print(f"{arquivo}: {'novo arquivo' if hash_atual is None else 'arquivo alterado'}, processando...")
 
 # --- 2. Carrega, quebra em chunks e enriquece os metadados --------------------
-docs = PyPDFLoader(file_path=str(pdf_path)).load()
+try:
+    docs = PyPDFLoader(file_path=str(pdf_path)).load()
+except Exception as e:
+    raise SystemExit(f"Erro: nao foi possivel ler o PDF {arquivo} "
+                     f"(arquivo corrompido ou incompleto?): {e}")
+
+total_caracteres = sum(len(d.page_content.strip()) for d in docs)
+if total_caracteres < MIN_CARACTERES:
+    raise SystemExit(
+        f"Erro: {arquivo} tem {len(docs)} paginas mas apenas {total_caracteres} caracteres de texto. "
+        "Provavelmente e um PDF de imagens (escaneado ou 'Microsoft Print to PDF'); "
+        "gere o PDF com 'Salvar como PDF' do navegador ou aplique OCR."
+    )
 
 splits = RecursiveCharacterTextSplitter(
     chunk_size=CHUNK_SIZE,

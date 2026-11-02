@@ -86,8 +86,20 @@ docker compose ps        # aguarde o status "healthy"
 ### 1. Ingerir o PDF
 
 ```bash
-python src/01-ingestor-pdf.py
+python src/01-ingestor-pdf.py [caminho/do/arquivo.pdf]
 ```
+
+| Comando | O que faz |
+|---|---|
+| `python src/01-ingestor-pdf.py` | Ingere o `arq.pdf` da raiz do projeto (padrão) |
+| `python src/01-ingestor-pdf.py docs/contrato.pdf` | Ingere o PDF informado |
+| `python src/01-ingestor-pdf.py --help` | Mostra a ajuda |
+
+- Apenas **um arquivo por execução**. Para ingerir vários PDFs, rode o script uma vez para cada um; todos ficam na mesma coleção e o chat pesquisa em todos.
+- Caminhos relativos são resolvidos a partir da pasta atual do terminal.
+- O arquivo é identificado pelo **nome** (sem a pasta). Dois PDFs com o mesmo nome em pastas diferentes são tratados como o mesmo arquivo, e renomear um PDF faz com que ele seja ingerido como um arquivo novo.
+
+Antes de processar, o script valida o arquivo: ele precisa existir, ter extensão `.pdf`, não estar vazio, ser um PDF válido, poder ser lido e ter texto extraível (PDFs só de imagem são rejeitados).
 
 O script:
 
@@ -173,4 +185,8 @@ GROUP BY c.name;
 | `Variavel de ambiente X nao esta definida` | Falta a variável no `.env` |
 | `401 - Missing Authentication header` | `OPENROUTER_API_KEY` inválida, com aspas ou espaços |
 | `connection timeout expired` | Container parado ou porta 5432 ocupada; rode `docker compose ps` |
-| `FileNotFoundError: arq.pdf` | O PDF não está no caminho esperado pelo ingestor |
+| `arquivo nao encontrado` | Caminho do PDF incorreto; confira a pasta atual do terminal |
+| `o arquivo nao e um PDF valido` | O arquivo não é um PDF de verdade (ex.: outro formato renomeado para `.pdf`) |
+| `nao foi possivel ler o PDF` | PDF corrompido ou ainda sendo salvo/copiado |
+| `apenas N caracteres de texto` | PDF de imagens (escaneado ou "Microsoft Print to PDF"); gere com "Salvar como PDF" do navegador ou aplique OCR |
+| `unrecognized arguments` | Mais de um arquivo informado; o ingestor aceita apenas um por vez |
