@@ -1,0 +1,20 @@
+# Segredos
+.env
+
+# Ambiente virtual
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Editores / sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Documentos (nao versionar PDFs reais)
+*.pdf
+!arq.pdf
