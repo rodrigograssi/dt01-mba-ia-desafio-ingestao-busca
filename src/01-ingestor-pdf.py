@@ -46,8 +46,8 @@ for key in ["OPENROUTER_API_KEY", "MODEL_EMBEDDING", "PG_URL", "PG_VECTOR_COLLEC
     if not os.getenv(key):
         raise RuntimeError(f"Variavel de ambiente {key} nao esta definida")
 
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 100
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 150
 MODELO_EMBEDDING = os.getenv("MODEL_EMBEDDING")
 COLLECTION = os.getenv("PG_VECTOR_COLLECTION")
 
